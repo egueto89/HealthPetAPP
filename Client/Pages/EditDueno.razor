@@ -1,0 +1,232 @@
+﻿@page "/editDueno/{ced}"
+@page "/editDueno"
+@using HealthPetAPP.Shared
+@inject HttpClient Http
+@inject NavigationManager navigationManager
+
+
+@if(mostrarFormDueno)
+{
+    
+
+
+            @if (dueno == null)
+            {
+                <span>Cargando dueño...</span>
+            }
+else
+{
+    if(mostrarMensajes)
+    {
+        <div class="@claseCSS" role="alert">
+                @mensajesValidacion
+            </div>
+    }
+                <h3>Dueño</h3>
+                <EditForm Model="dueno" OnValidSubmit="CreaOActualizaDueno">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                     <div class="form-group row">
+                        <label for="Cedula" class="col-sm-1 col-form-label">Cedula</label>
+                        <div class="col-sm-4">
+                            <InputText @bind-Value="dueno.Cedula" class="form-control" @onkeypress="KeyboardEventHandler" @oninput="@((e) => { dueno.Cedula=(string)e.Value;})"></InputText>
+                        </div>
+                        <button type="button" class="btn btn-primary" @onclick="(() => BuscarDueno(dueno.Cedula))">
+                            <span class="icon fa-solid fa-magnifying-glas"></span>
+                            Buscar
+                    </button>
+                        </div>
+                    <div class="form-group row">
+                        <label for="Descripcion" class="col-sm-1 col-form-label">Nombre</label>
+                        <div class="col-sm-4">
+                            <InputText @bind-Value="dueno.Nombre" class="form-control"></InputText>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="Apellidos" class="col-sm-1 col-form-label">Apellidos</label>
+                        <div class="col-sm-4">
+                            <InputText @bind-Value="dueno.Apellidos" class="form-control"></InputText>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="Telefono" class="col-sm-1 col-form-label">Tel&eacute;fono</label>
+                        <div class="col-sm-4">
+                            <InputText @bind-Value="dueno.Telefono" class="form-control"></InputText>
+                        </div>
+                    </div>
+                    <div class="form-group row">
+                        <label for="Correo" class="col-sm-1 col-form-label">Correo</label>
+                        <div class="col-sm-4">
+                            <InputText @bind-Value="dueno.Correo" class="form-control"></InputText>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                            <span class="icon fa-solid fa-plus-square"></span>
+                            @MensajeBoton
+
+                    </button>
+                      <button type="button" class="btn btn-primary" @onclick="Siguiente">
+                            <span class="icon fa-solid fa-angles-right"></span>
+                           Siguiente
+                    </button>
+                      <button class="btn btn-info" id="btn-regresar" @onclick="(() => Regresar())">
+                        <span class="icon fa-solid fa-reply"></span>
+                        Regresar
+                        </button>
+                </EditForm>
+    }
+}
+else
+{
+    <EditAnimal ced="@dueno.Cedula" Iddueno="@dueno.IdDueno" NombreDueno="@NombreDueno"></EditAnimal>
+}
+
+
+
+
+
+@code {
+
+    [Parameter]
+    public string ced { get; set; }
+
+    Dueno dueno = new Dueno();
+    private List<Dueno> duenos = new List<Dueno>();
+    private string MensajeBoton = "Crear Dueño" ;
+    private bool mostrarMensajes= false;
+    private string mensajesValidacion = string.Empty;
+    private string claseCSS = string.Empty;
+    private bool mostrarFormDueno = true;
+    private string NombreDueno = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(ced))
+        {
+            duenos = await Http.GetFromJsonAsync<List<Dueno>>($"dueno/{ced}");
+            dueno = duenos.FirstOrDefault();
+            MensajeBoton = " Editar Dueño";
+            FormatarNombre();
+        }
+
+
+    }
+
+    private async void CreaOActualizaDueno()
+    {
+        HttpResponseMessage response;
+        try
+        {
+            ocultarMensajes();
+            if (dueno.IdDueno == 0)
+            {
+                response = await Http.PostAsJsonAsync<Dueno>("dueno", dueno);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    dueno.IdDueno = await response.Content. ReadFromJsonAsync<int>();
+                    Mensaje("Creado con éxito", "alert alert-success col-12");
+                    
+                }
+            }
+            else
+            {
+                response = await Http.PutAsJsonAsync<Dueno>("dueno", dueno);
+                if (response.IsSuccessStatusCode)
+                {
+                    Mensaje("Editado con éxito", "alert alert-success col-12");
+                }
+
+            } 
+            FormatarNombre();
+            StateHasChanged();
+        }
+        catch(Exception ex)
+        {
+            throw;
+        }
+
+    }
+    private void Siguiente()
+    {
+        ocultarMensajes();
+        if(dueno.IdDueno>0)
+        {
+            mostrarFormDueno = false;
+
+            StateHasChanged();
+        }
+        else
+        {
+            Mensaje("Debe buscar o crear un(a)  dueño de mascota para continuar", "alert alert-warning col-12");
+        }
+    }
+
+
+    private async void BuscarDueno(string cedula)
+    {
+        try
+        {
+            ocultarMensajes();
+            if (!string.IsNullOrEmpty(cedula))
+            {
+                dueno = await Http.GetFromJsonAsync<Dueno>($"dueno/buscarDueno/{cedula}");
+
+                if(string.IsNullOrEmpty(dueno.Nombre))
+                {
+                    dueno.Cedula=cedula;
+                    Mensaje("No existe el cliente favor llenar datos","alert alert-warning col-12");
+
+                }else
+                {
+                    MensajeBoton = " Editar Dueño";
+                    FormatarNombre();
+                }
+            }
+            else
+            {
+                Mensaje("Debe ingresar una cédula para buscar cliente","alert alert-danger col-12");
+            }   
+            StateHasChanged();
+
+        }
+        catch (Exception ex)
+        {
+            dueno = new Dueno();
+        }
+    }
+
+    private void ocultarMensajes()
+    {
+        mostrarMensajes = false;
+        mensajesValidacion = string.Empty;
+        claseCSS = string.Empty;
+    }
+
+    private void KeyboardEventHandler(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            BuscarDueno(dueno.Cedula);
+
+    }
+
+    private void Mensaje(string mensaje, string clase, bool mostrar=true)
+    {
+        mostrarMensajes = mostrar;
+        mensajesValidacion = mensaje;
+        claseCSS = clase;
+    }
+
+    private void FormatarNombre()
+    {
+        NombreDueno = dueno.Nombre + " " + dueno.Apellidos;
+
+    }
+
+    
+    private void Regresar()
+    {
+        navigationManager.NavigateTo($"buscarCita");
+    }
+
+}

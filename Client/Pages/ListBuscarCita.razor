@@ -1,0 +1,189 @@
+﻿@page "/buscarCita"
+@using HealthPetAPP.Shared
+@inject HttpClient Http
+@inject NavigationManager navigationManager
+@inject IJSRuntime JSRuntime
+
+
+<h3>Buscar Cita</h3>
+<p>Busqueda de cita</p>
+
+
+@if (listCita == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+      if(mostrarMensajes)
+    {
+        <div class="@claseCSS" role="alert">
+                @mensajesValidacion
+            </div>
+    }
+<EditForm Model="filtrocita" OnValidSubmit="BuscarCita">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="form-group row">
+        <label for="Descripcion" class="col-sm-2 col-form-label">C&eacute;dula</label>
+        <div class="col-sm-4">
+            <InputText @bind-Value="filtrocita.Cedula" class="form-control"></InputText>
+        </div>
+    </div>
+    <div class="form-group row">
+        <label for="FechaSalida" class="col-sm-2 col-form-label">Fecha Cita</label>
+        <div class="col-sm-4">
+            <InputDate @bind-Value="filtrocita.Fecha" class="form-control"></InputDate>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        <span class="icon fa-solid fa-magnifying-glass"></span>
+        Buscar Cita
+    </button>
+    </EditForm>
+    <div class="button-table">
+        <button class="btn btn-primary" id="btn-crear" @onclick="(() => CrearCita())">
+        <span class="icon fa-solid fa-plus-square"></span>
+        Crear Cita
+    </button>
+    </div>
+    
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Hora</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Dueño Mascota</th>
+                <th>Categor&iacute;a</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!listCita.Any())
+            {
+                <p><em>No existen Registros</em></p>
+            }
+            else
+            {
+                @foreach (var cita in listCita)
+                {
+                    <tr>
+                        <td>@cita.Hora</td>
+                        <td>@cita.Fecha</td>
+                        <td>@cita.Estado</td>
+                        <td>@cita.NombreDueno</td>
+                        <td>@cita.DesCategoria</td>
+                        <td>
+                            <button class="btn btn-outline-secondary" @onclick="(() => ObtenerCita(cita.IdCita))">
+                                <span class="icon fa-solid fa-pencil" title="pencil" aria-hidden="true"></span>
+                                Editar  Cita
+                            </button>
+
+                            <button class="btn btn-danger" @onclick="(() => CancelarCita(cita))" title="Cancelar Cita">
+                                <span class="icon fa-solid fa-bell-slash" title="Cancelar" aria-hidden="true"></span>
+                                Cancelar Cita
+                            </button>
+                        </td>
+                    </tr>
+                }
+            }
+
+        </tbody>
+    </table>
+}
+
+@code {
+
+    private List<Cita> listCita = new List<Cita>();
+
+
+    private FiltroBusquedaCita filtrocita = new FiltroBusquedaCita();
+
+    private bool mostrarMensajes= false;
+    private string mensajesValidacion = string.Empty;
+    private string claseCSS = string.Empty;
+
+    //protected override async Task OnInitializedAsync()
+    //{
+    //    await LlenarTabla();
+
+    //}
+
+    private async Task LlenarTabla()
+    {
+        try
+        {
+            ocultarMensajes();
+            listCita = await Http.GetFromJsonAsync<List<Cita>>($"Cita/busquedaCita/{filtrocita.Cedula}/{filtrocita.Fecha.ToString("yyyyMMdd")}");
+
+            if(listCita?.Count<=0)
+                Mensaje("No existen registros", "alert alert-info col-12");
+        }
+        catch (Exception ex)
+        {
+
+            listCita = new List<Cita>();
+        }
+    }
+
+    private async void BuscarCita()
+    {
+        await LlenarTabla();
+        StateHasChanged();
+    }
+
+
+    private void ObtenerCita(int idCita)
+    {
+        navigationManager.NavigateTo($"editCita/{idCita}");
+    }
+
+    private void CrearCita()
+    {
+        navigationManager.NavigateTo($"editDueno/");
+    }
+
+    private void ocultarMensajes()
+    {
+        mostrarMensajes = false;
+        mensajesValidacion = string.Empty;
+        claseCSS = string.Empty;
+    }
+
+
+    private void Mensaje(string mensaje, string clase, bool mostrar=true)
+    {
+        mostrarMensajes = mostrar;
+        mensajesValidacion = mensaje;
+        claseCSS = clase;
+    }
+
+    private async void CancelarCita(Cita cita)
+    {
+         try
+            {
+                 ocultarMensajes();
+
+                if (!await JSRuntime.InvokeAsync<bool>("confirm", $"¿Esta seguro que desea cancelar la cita ?"))
+                    return;
+
+                var respon = await Http.PutAsJsonAsync($"cita/cancelarCita",cita);
+
+                if (respon.IsSuccessStatusCode)
+                {
+                    await LlenarTabla();
+                    Mensaje("Cita cancelada", "alert alert-success col-12");
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
+
+    }
+
+}

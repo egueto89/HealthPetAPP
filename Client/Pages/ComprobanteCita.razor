@@ -1,0 +1,97 @@
+﻿@page "/comprobante/{id:int}"
+@using HealthPetAPP.Shared
+@inject HttpClient Http
+@inject NavigationManager navigationManager
+
+<h3>Comprobante de Cita</h3>
+
+@if(mostrarMensajes)
+    {
+        <div class="@claseCSS" role="alert">
+                @mensajesValidacion
+            </div>
+    }
+<div class="form-group">
+      <div class="col-md-12"  style="background-color:#aaa">
+        <h2>Gracias por su confianza @comprobante.NombreDueno</h2> 
+        <p>Se realiza con éxito la cita para su mascota @comprobante.NombreMascota el día @comprobante.Fecha.ToString("dd-MM-yyyy")</p>
+      </div>
+    </div>
+    <div class="form-group">
+        <button class="btn btn-info" id="btn-regresar" @onclick="(() => Regresar())">
+        <span class="icon fa-solid fa-reply"></span>
+        Regresar
+    </button>
+        <button class="btn btn-primary" @onclick="(() => CrearCita())">
+        <span class="icon fa-solid fa-envelope-circle-check"></span>
+        Enviar Correo
+    </button>
+    </div>
+@code {
+
+    [Parameter]
+    public int id { get; set; }
+    //https://www.youtube.com/watch?v=RzNQ-Mzbs3Y
+    private DatosComprobante comprobante = new DatosComprobante();
+    private DatosCorreo datosCorreo = new DatosCorreo();
+
+    private bool mostrarMensajes= false;
+    private string mensajesValidacion = string.Empty;
+    private string claseCSS = string.Empty;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+
+            if (id!=0)
+            {
+                comprobante = await Http.GetFromJsonAsync<DatosComprobante>($"Comprobante/{id}");
+            }
+
+        }catch(Exception ex)
+        {
+
+        }
+    }
+    private async Task CrearCita()
+    {
+        HttpResponseMessage response;
+        ocultarMensajes();
+        datosCorreo.Correo = comprobante.CorreoDueno;
+        datosCorreo.CuerpoCorreo = $"<h1>Gracias por su confianza.</h1><h2>{comprobante.NombreDueno}.</h2> <br> <p>Se realiza con éxito la  cita para su mascota {comprobante.NombreMascota} el día {comprobante.Fecha.ToString("dd-MM-yyyy")} .</p>";
+
+        response = await Http.PostAsJsonAsync<DatosCorreo>("Comprobante", datosCorreo);
+        int v = 1;
+        if (response.IsSuccessStatusCode)
+        {
+            var resgistros = await response.Content. ReadFromJsonAsync<int>();
+            if (resgistros == 0)
+                Mensaje("Correo enviado con éxito", "alert alert-success col-12");
+            else
+                Mensaje("Ocurrió un error al enviar el correo", "alert alert-danger col-12");
+
+        }
+    }
+
+    private void ocultarMensajes()
+    {
+        mostrarMensajes = false;
+        mensajesValidacion = string.Empty;
+        claseCSS = string.Empty;
+    }
+
+
+    private void Mensaje(string mensaje, string clase, bool mostrar=true)
+    {
+        mostrarMensajes = mostrar;
+        mensajesValidacion = mensaje;
+        claseCSS = clase;
+    }
+
+    private void Regresar()
+    {
+        navigationManager.NavigateTo($"buscarCita");
+    }
+}

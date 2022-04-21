@@ -1,0 +1,261 @@
+﻿@page "/editCita/{id:int}"
+@page "/editCita"
+@using HealthPetAPP.Shared
+@inject HttpClient Http
+@inject NavigationManager navigationManager
+
+
+            @if (cita == null)
+            {
+                <span>Cargando Cita...</span>
+            }
+else
+{
+    if(mostrarMensajes)
+    {
+        <div class="@claseCSS" role="alert">
+                @mensajesValidacion
+            </div>
+    }
+                <h3>Cita</h3>
+                <EditForm Model="cita" OnValidSubmit="CreaOActualizaCita">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                     <div class="form-group row">
+                        <label for="NombreDueno" class="col-sm-2 col-form-label">Dueño</label>
+                        <div class="col-sm-4">
+                            <InputText @bind-Value="cita.NombreDueno" class="form-control" disabled="true"></InputText>
+                        </div>
+                        </div>
+
+                         <div class="form-group row">
+                        <label for="IdAnimal" class="col-sm-2 col-form-label">Mascota</label>
+                        <div class="col-sm-4">
+                            <InputSelect class="form-control" @bind-Value="cita.IdAnimal" disabled="true">
+                                <option value="0" selected>Seleccione</option>
+                                @foreach (var animal in animals)
+                                {
+                                <option value="@animal.IdAnimal">@animal.Nombre</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label for="IdCategoria" class="col-sm-2 col-form-label">Categoría</label>
+                        <div class="col-sm-4">
+                            <InputSelect class="form-control" @bind-Value="cita.IdCategoria">
+                                <option value="0" selected>Seleccione</option>
+                                @foreach (var categoria in categorias)
+                                {
+                                <option value="@categoria.IdCategoria">@categoria.Descripcion</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                     <div class="form-group row">
+                        <label for="Fecha" class="col-sm-2 col-form-label">Fecha</label>
+                        <div class="col-sm-4">
+                            <InputDate @bind-Value="cita.Fecha" class="form-control"></InputDate>
+                        </div>
+                    </div>
+
+                      <div class="form-group row">
+                        <label for="Hora" class="col-sm-2 col-form-label">Hora de cita</label>
+                        <div class="col-sm-4">
+                            <InputSelect class="form-control"  ValueExpression="@(()=>cita.Hora)"   Value="@cita.Hora" ValueChanged="@((string value) => OnValueChanged(value))">
+                                <option value="0" selected>Seleccione</option>
+                                @foreach (var hora in cita.CargarHoras())
+                                {
+                                <option value="@hora.Key">@hora.Value</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                            <span class="icon fa-solid fa-plus-square"></span>
+                            @MensajeBoton
+
+                    </button>
+                      <button type="button" class="btn btn-primary" @onclick="Siguiente">
+                            <span class="icon fa-solid fa-angles-right"></span>
+                           Finalizar
+                    </button>
+                     <button class="btn btn-info" id="btn-regresar" @onclick="(() => Regresar())">
+                        <span class="icon fa-solid fa-reply"></span>
+                        Regresar
+                        </button>
+                </EditForm>
+    
+}
+
+
+
+
+
+
+@code {
+
+    [Parameter]
+    public int id { get; set; }
+
+    [Parameter]
+    public string NombreDueno { get; set; }
+
+    [Parameter]
+    public string CedulaDueno { get; set; }
+
+    [Parameter]
+    public int IdAnimal { get; set; }
+
+    [Parameter]
+    public int IdDueno { get; set; }
+
+    Cita cita = new Cita();
+    private List<Cita> Citas = new List<Cita>();
+    private List<Categoria> categorias = new List<Categoria>();
+    private List<Animal> animals = new List<Animal>();
+    private string MensajeBoton = "Crear Cita" ;
+    private bool mostrarMensajes= false;
+    private string mensajesValidacion = string.Empty;
+    private string claseCSS = string.Empty;
+    private bool mostrarFormCita = true;
+    private bool noPermiteCrearCita = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+
+            if (id!=0)
+            {
+                cita = await Http.GetFromJsonAsync<Cita>($"Cita/{id}");
+                cita.FechaAnterior = cita.Fecha;
+                cita.HoraAnterior = cita.Hora;
+                MensajeBoton = " Editar Cita";
+            }else
+            {
+                cita.NombreDueno = NombreDueno;
+                cita.CedulaDueno = CedulaDueno;
+                cita.IdAnimal = IdAnimal;
+                cita.IdDueno = IdDueno;
+            }
+
+
+            // catalogo para categoria
+            categorias= await Http.GetFromJsonAsync<List<Categoria>>($"Categoria");
+            animals = await Http.GetFromJsonAsync<List<Animal>>($"animal/buscarAnimal/{cita.CedulaDueno}");
+
+
+        }catch(Exception ex)
+        {
+
+        }
+    }
+
+    private async void CreaOActualizaCita()
+    {
+        HttpResponseMessage response;
+        try
+        {
+            ocultarMensajes();
+            if(!noPermiteCrearCita)
+            {
+                if (cita.IdCita == 0)
+                {
+                    response = await Http.PostAsJsonAsync<Cita>("Cita", cita);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var idcita = await response.Content. ReadFromJsonAsync<int>();
+                        if(idcita ==0)
+                            Mensaje("Ocurrió un error al crear cita", "alert alert-danger col-12");
+                        else
+                        {
+                            cita.IdCita = idcita;
+                            Mensaje("Creado con éxito", "alert alert-success col-12");
+                            
+                        }
+                    }
+                }
+                else
+                {
+                    response = await Http.PutAsJsonAsync<Cita>("Cita", cita);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Mensaje("Editado con éxito", "alert alert-success col-12");
+                    }
+
+                } 
+            }
+            else
+            {
+                Mensaje("Favor escoga otra hora de cita", "alert alert-warning col-12");
+            }
+            StateHasChanged();
+        }
+        catch(Exception ex)
+        {
+            throw;
+        }
+
+    }
+    private void Siguiente()
+    {
+        ocultarMensajes();
+        if(cita.IdCita>0)
+        {
+            mostrarFormCita = false;
+
+            StateHasChanged();
+            navigationManager.NavigateTo($"comprobante/{cita.IdCita}");
+        }
+        else
+        {
+            Mensaje("Debe crear una  Cita para Finalizar", "alert alert-warning col-12");
+        }
+    }
+
+    private void ocultarMensajes()
+    {
+        mostrarMensajes = false;
+        mensajesValidacion = string.Empty;
+        claseCSS = string.Empty;
+    }
+
+
+    private void Mensaje(string mensaje, string clase, bool mostrar=true)
+    {
+        mostrarMensajes = mostrar;
+        mensajesValidacion = mensaje;
+        claseCSS = clase;
+    }
+
+    private  async Task OnValueChanged(string value)
+    {
+        ocultarMensajes();
+        noPermiteCrearCita = false;
+        cita.Hora = value;
+        if(!string.IsNullOrEmpty(cita.Hora))
+        {
+            var result = await Http.GetFromJsonAsync<int>($"Cita/fechaHoraDisponible/{cita.Hora}/{cita.Fecha.ToString("yyyyMMdd")}/{cita.IdDueno}/{cita.IdCita}");
+            if(result==1)
+            {
+                Mensaje("Existe una cita agendada para esa hora", "alert alert-warning col-12");
+                noPermiteCrearCita = true;
+            }
+
+            StateHasChanged();
+
+
+        }
+        //return Task.CompletedTask;
+
+    }
+
+    private void Regresar()
+    {
+        navigationManager.NavigateTo($"buscarCita");
+    }
+
+}
